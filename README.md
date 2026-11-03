@@ -44,3 +44,47 @@ Then mount the bundle (declared in package.json 'dsh.bundle'):
 ```
 
 Or, once published, 'dsh plugin --profile web add dsh-premise-guard'.
+
+## Install on a local profile (measured)
+
+```sh
+cd ~/.dsh/profiles/desktop
+pnpm add link:~/Documents/dsh-workspace/link-plugins/dsh-premise-guard
+```
+
+Add `dsh-premise-guard` to `dsh.profile.bundles` in the profile's `package.json`.
+The bundle ships its own `cordis.patch.yml`, so the row is inserted automatically —
+do **not** copy that insert block into the profile's `cordis.patch.yml`, it would
+duplicate the entry id and the settings panel would refuse to save.
+
+To override config, add a top-level row instead:
+
+```yaml
+- id: dsh-premise-guard
+  config:
+    maxAnchors: 5
+    minAnchorLength: 6
+```
+
+## Where it sits next to `dsh-handoff-state`
+
+The two answer different questions and do not overlap:
+
+| | `dsh-premise-guard` | `dsh-handoff-state` |
+|---|---|---|
+| Trigger | `compaction/summary` | every step |
+| Question | "what literal did the summary just drop?" | "where was I when the last session stopped?" |
+| Output | one-shot notice per alarm | 4000 B handoff section, re-rendered |
+| Cost | zero when no compaction happened | one runtime-context line, cached by text |
+
+`premise-guard` fires only after a compaction; `handoff-state` fires on every step but
+renders byte-identical text while nothing changes, so the loop admits no new snapshot.
+
+## Notes from a real install
+
+- A notice is delivered **once per alarm**; a new user prompt skips delivery, so the
+  model is never interrupted mid-thought by a stale reminder.
+- Anchor extraction is deterministic — no model call, no new storage. The shadowed
+  span is re-derived from `shadowedSeqs`, because the append-only log keeps every byte.
+- If nothing ever fires, check that compaction actually happened: the guard has no
+  timer, and a session that never compacts never triggers it.
